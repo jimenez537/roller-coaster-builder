@@ -182,25 +182,25 @@ export function Track() {
         return (
           <group key={`light-${i}`}>
             <mesh position={[leftX, pos.y + 0.1, leftZ]}>
-              <sphereGeometry args={[0.15, 8, 8]} />
+              <sphereGeometry args={[0.25, 8, 8]} />
               <meshBasicMaterial color={color} />
             </mesh>
             <pointLight 
               position={[leftX, pos.y + 0.1, leftZ]} 
-              intensity={0.3} 
+              intensity={0.8} 
               color={color} 
-              distance={8} 
+              distance={12} 
             />
             
             <mesh position={[rightX, pos.y + 0.1, rightZ]}>
-              <sphereGeometry args={[0.15, 8, 8]} />
+              <sphereGeometry args={[0.25, 8, 8]} />
               <meshBasicMaterial color={color} />
             </mesh>
             <pointLight 
               position={[rightX, pos.y + 0.1, rightZ]} 
-              intensity={0.3} 
+              intensity={0.8} 
               color={color} 
-              distance={8} 
+              distance={12} 
             />
           </group>
         );

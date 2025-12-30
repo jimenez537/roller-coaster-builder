@@ -7,14 +7,14 @@ export function Sky() {
   const parkLights = useMemo(() => {
     const lights: { x: number; z: number; height: number; color: string }[] = [];
     
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      const radius = 80 + Math.random() * 100;
+    for (let i = 0; i < 40; i++) {
+      const angle = (i / 40) * Math.PI * 2;
+      const radius = 60 + Math.random() * 120;
       lights.push({
         x: Math.cos(angle) * radius,
         z: Math.sin(angle) * radius,
         height: 8 + Math.random() * 4,
-        color: ["#FFD700", "#FF6B6B", "#4ECDC4", "#FF69B4", "#00CED1"][Math.floor(Math.random() * 5)]
+        color: ["#FFD700", "#FF6B6B", "#4ECDC4", "#FF69B4", "#00CED1", "#FFFFFF"][Math.floor(Math.random() * 6)]
       });
     }
     return lights;
@@ -22,10 +22,10 @@ export function Sky() {
   
   const ferrisWheel = useMemo(() => {
     const spokes: { angle: number; color: string }[] = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 16; i++) {
       spokes.push({
-        angle: (i / 12) * Math.PI * 2,
-        color: ["#FF0000", "#FFFF00", "#00FF00", "#0000FF", "#FF00FF", "#00FFFF"][i % 6]
+        angle: (i / 16) * Math.PI * 2,
+        color: ["#FF0000", "#FFFF00", "#00FF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFFFFF", "#FFA500"][i % 8]
       });
     }
     return spokes;
@@ -34,29 +34,29 @@ export function Sky() {
   if (isNightMode) {
     return (
       <>
-        <color attach="background" args={["#0a0a1a"]} />
-        <fog attach="fog" args={["#0a0a1a", 100, 400]} />
+        <color attach="background" args={["#101025"]} />
+        <fog attach="fog" args={["#101025", 150, 500]} />
         
-        <ambientLight intensity={0.1} color="#4466aa" />
+        <ambientLight intensity={0.35} color="#6688cc" />
         <directionalLight
           position={[50, 50, 25]}
-          intensity={0.2}
-          color="#6688cc"
+          intensity={0.4}
+          color="#8899bb"
         />
         
-        <mesh position={[-60, 35, -80]}>
-          <sphereGeometry args={[5, 32, 32]} />
-          <meshBasicMaterial color="#FFFFCC" />
+        <mesh position={[-60, 45, -80]}>
+          <sphereGeometry args={[6, 32, 32]} />
+          <meshBasicMaterial color="#FFFFEE" />
         </mesh>
-        <pointLight position={[-60, 35, -80]} intensity={0.3} color="#FFFFCC" distance={200} />
+        <pointLight position={[-60, 45, -80]} intensity={0.8} color="#FFFFCC" distance={300} />
         
-        {[...Array(100)].map((_, i) => (
+        {[...Array(150)].map((_, i) => (
           <mesh key={i} position={[
-            (Math.random() - 0.5) * 400,
-            50 + Math.random() * 50,
-            (Math.random() - 0.5) * 400
+            (Math.random() - 0.5) * 500,
+            60 + Math.random() * 60,
+            (Math.random() - 0.5) * 500
           ]}>
-            <sphereGeometry args={[0.1 + Math.random() * 0.1, 8, 8]} />
+            <sphereGeometry args={[0.15 + Math.random() * 0.15, 8, 8]} />
             <meshBasicMaterial color="#FFFFFF" />
           </mesh>
         ))}
@@ -65,29 +65,29 @@ export function Sky() {
           <group key={`post-${i}`} position={[light.x, 0, light.z]}>
             <mesh position={[0, light.height / 2, 0]}>
               <cylinderGeometry args={[0.15, 0.2, light.height, 8]} />
-              <meshStandardMaterial color="#333333" />
+              <meshStandardMaterial color="#444444" />
             </mesh>
             <mesh position={[0, light.height + 0.5, 0]}>
-              <sphereGeometry args={[0.4, 16, 16]} />
+              <sphereGeometry args={[0.6, 16, 16]} />
               <meshBasicMaterial color={light.color} />
             </mesh>
             <pointLight 
               position={[0, light.height + 0.5, 0]} 
-              intensity={0.5} 
+              intensity={1.5} 
               color={light.color} 
-              distance={20} 
+              distance={35} 
             />
           </group>
         ))}
         
         <group position={[120, 0, -100]}>
-          <mesh position={[0, 20, 0]}>
-            <cylinderGeometry args={[0.8, 1, 40, 8]} />
-            <meshStandardMaterial color="#444444" />
+          <mesh position={[0, 22, 0]}>
+            <cylinderGeometry args={[1, 1.5, 44, 8]} />
+            <meshStandardMaterial color="#555555" />
           </mesh>
           
-          <mesh position={[0, 25, 0]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[15, 0.3, 8, 32]} />
+          <mesh position={[0, 28, 0]}>
+            <torusGeometry args={[18, 0.5, 8, 48]} />
             <meshBasicMaterial color="#FF00FF" />
           </mesh>
           
@@ -95,61 +95,144 @@ export function Sky() {
             <group key={i}>
               <mesh 
                 position={[
-                  Math.cos(spoke.angle) * 15,
-                  25 + Math.sin(spoke.angle) * 15,
+                  Math.cos(spoke.angle) * 18,
+                  28 + Math.sin(spoke.angle) * 18,
                   0
                 ]}
               >
-                <boxGeometry args={[2, 2, 2]} />
+                <boxGeometry args={[3, 3, 3]} />
                 <meshBasicMaterial color={spoke.color} />
               </mesh>
               <pointLight 
                 position={[
-                  Math.cos(spoke.angle) * 15,
-                  25 + Math.sin(spoke.angle) * 15,
+                  Math.cos(spoke.angle) * 18,
+                  28 + Math.sin(spoke.angle) * 18,
                   0
                 ]}
-                intensity={0.3}
+                intensity={0.8}
                 color={spoke.color}
-                distance={10}
+                distance={15}
               />
             </group>
           ))}
+          <pointLight position={[0, 28, 5]} intensity={2} color="#FF88FF" distance={40} />
         </group>
         
         <group position={[-100, 0, 80]}>
-          <mesh position={[0, 30, 0]}>
-            <cylinderGeometry args={[3, 5, 60, 12]} />
-            <meshStandardMaterial color="#333366" />
+          <mesh position={[0, 35, 0]}>
+            <cylinderGeometry args={[4, 6, 70, 12]} />
+            <meshStandardMaterial color="#444466" />
           </mesh>
-          {[...Array(8)].map((_, i) => (
-            <mesh key={i} position={[0, 5 + i * 7, 0]}>
-              <torusGeometry args={[6, 0.2, 8, 32]} />
-              <meshBasicMaterial color={i % 2 === 0 ? "#FF0000" : "#FFFF00"} />
-            </mesh>
+          {[...Array(10)].map((_, i) => (
+            <group key={i}>
+              <mesh position={[0, 5 + i * 7, 0]}>
+                <torusGeometry args={[8, 0.3, 8, 32]} />
+                <meshBasicMaterial color={["#FF0000", "#FFFF00", "#00FF00", "#00FFFF", "#FF00FF"][i % 5]} />
+              </mesh>
+              <pointLight 
+                position={[8, 5 + i * 7, 0]} 
+                intensity={0.6} 
+                color={["#FF0000", "#FFFF00", "#00FF00", "#00FFFF", "#FF00FF"][i % 5]} 
+                distance={15} 
+              />
+            </group>
           ))}
-          <pointLight position={[0, 60, 0]} intensity={1} color="#FF4444" distance={30} />
+          <pointLight position={[0, 70, 0]} intensity={2} color="#FF4444" distance={50} />
         </group>
         
         <group position={[80, 0, 100]}>
-          <mesh position={[0, 3, 0]}>
-            <cylinderGeometry args={[8, 10, 6, 16]} />
-            <meshStandardMaterial color="#663399" />
+          <mesh position={[0, 4, 0]}>
+            <cylinderGeometry args={[12, 14, 8, 24]} />
+            <meshStandardMaterial color="#774499" />
           </mesh>
-          {[...Array(12)].map((_, i) => {
-            const angle = (i / 12) * Math.PI * 2;
+          {[...Array(16)].map((_, i) => {
+            const angle = (i / 16) * Math.PI * 2;
+            const color = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#FFFFFF"][i % 8];
             return (
               <group key={i}>
-                <mesh position={[Math.cos(angle) * 7, 4, Math.sin(angle) * 7]}>
-                  <boxGeometry args={[1.5, 2, 1]} />
-                  <meshBasicMaterial color={["#FF0000", "#00FF00", "#0000FF", "#FFFF00"][i % 4]} />
+                <mesh position={[Math.cos(angle) * 10, 5, Math.sin(angle) * 10]}>
+                  <boxGeometry args={[2, 3, 1.5]} />
+                  <meshBasicMaterial color={color} />
                 </mesh>
                 <pointLight 
-                  position={[Math.cos(angle) * 7, 5, Math.sin(angle) * 7]}
-                  intensity={0.2}
-                  color={["#FF0000", "#00FF00", "#0000FF", "#FFFF00"][i % 4]}
-                  distance={8}
+                  position={[Math.cos(angle) * 10, 6, Math.sin(angle) * 10]}
+                  intensity={0.5}
+                  color={color}
+                  distance={12}
                 />
+              </group>
+            );
+          })}
+          <pointLight position={[0, 8, 0]} intensity={1.5} color="#FF88FF" distance={25} />
+        </group>
+        
+        <group position={[-80, 0, -120]}>
+          <mesh position={[0, 25, 0]}>
+            <cylinderGeometry args={[2, 3, 50, 8]} />
+            <meshStandardMaterial color="#553333" />
+          </mesh>
+          {[...Array(6)].map((_, i) => {
+            const y = 8 + i * 8;
+            return (
+              <group key={i}>
+                <mesh position={[6, y, 0]}>
+                  <boxGeometry args={[12, 0.5, 2]} />
+                  <meshBasicMaterial color={i % 2 === 0 ? "#FF6600" : "#FFFF00"} />
+                </mesh>
+                <mesh position={[-6, y, 0]}>
+                  <boxGeometry args={[12, 0.5, 2]} />
+                  <meshBasicMaterial color={i % 2 === 0 ? "#FFFF00" : "#FF6600"} />
+                </mesh>
+                <pointLight position={[10, y, 0]} intensity={0.6} color="#FFAA00" distance={15} />
+                <pointLight position={[-10, y, 0]} intensity={0.6} color="#FFAA00" distance={15} />
+              </group>
+            );
+          })}
+          <pointLight position={[0, 50, 0]} intensity={1.5} color="#FFCC00" distance={40} />
+        </group>
+        
+        <group position={[150, 0, 50]}>
+          <mesh position={[0, 20, 0]}>
+            <cylinderGeometry args={[1.5, 2, 40, 8]} />
+            <meshStandardMaterial color="#336633" />
+          </mesh>
+          {[...Array(8)].map((_, i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const armLength = 12;
+            return (
+              <group key={i}>
+                <mesh position={[Math.cos(angle) * armLength / 2, 35, Math.sin(angle) * armLength / 2]} rotation={[0, angle, 0]}>
+                  <boxGeometry args={[armLength, 0.5, 1]} />
+                  <meshBasicMaterial color="#00FF00" />
+                </mesh>
+                <mesh position={[Math.cos(angle) * armLength, 33, Math.sin(angle) * armLength]}>
+                  <boxGeometry args={[2, 4, 2]} />
+                  <meshBasicMaterial color={["#FF0000", "#FFFF00", "#00FFFF", "#FF00FF"][i % 4]} />
+                </mesh>
+                <pointLight 
+                  position={[Math.cos(angle) * armLength, 34, Math.sin(angle) * armLength]}
+                  intensity={0.5}
+                  color={["#FF0000", "#FFFF00", "#00FFFF", "#FF00FF"][i % 4]}
+                  distance={10}
+                />
+              </group>
+            );
+          })}
+          <pointLight position={[0, 40, 0]} intensity={1.5} color="#00FF88" distance={35} />
+        </group>
+        
+        <group position={[-150, 0, -50]}>
+          {[...Array(20)].map((_, i) => {
+            const x = (i % 5) * 8 - 16;
+            const z = Math.floor(i / 5) * 8 - 12;
+            const color = ["#FF0000", "#FFFF00", "#00FF00", "#0000FF", "#FF00FF"][i % 5];
+            return (
+              <group key={i}>
+                <mesh position={[x, 3, z]}>
+                  <boxGeometry args={[3, 6, 3]} />
+                  <meshBasicMaterial color={color} />
+                </mesh>
+                <pointLight position={[x, 6, z]} intensity={0.4} color={color} distance={10} />
               </group>
             );
           })}
