@@ -132,22 +132,14 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       const loopRadius = 8;
       const halfPoints = 10; // Points for each half of the loop
       const loopPoints: TrackPoint[] = [];
-      const exitSeparation = 2.5; // Small lateral offset to prevent overlap with entry track
-      
-      // Compute right vector (perpendicular to forward in horizontal plane)
-      const up = new THREE.Vector3(0, 1, 0);
-      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
       
       // Build ascending half (entry to top): θ from 0 to π
-      const ascendingOffsets: { forward: number; vertical: number }[] = [];
       for (let i = 1; i <= halfPoints; i++) {
-        const t = i / halfPoints; // 0 to 1 over first half
-        const theta = t * Math.PI; // 0 to π
+        const t = i / halfPoints;
+        const theta = t * Math.PI;
         
         const forwardOffset = Math.sin(theta) * loopRadius;
         const verticalOffset = (1 - Math.cos(theta)) * loopRadius;
-        
-        ascendingOffsets.push({ forward: forwardOffset, vertical: verticalOffset });
         
         loopPoints.push({
           id: `point-${++pointCounter}`,
@@ -160,24 +152,20 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
         });
       }
       
-      // Build descending half with small lateral offset to avoid overlap
+      // Build descending half - IDENTICAL mirror of ascending (no lateral offset)
       for (let i = halfPoints - 1; i >= 1; i--) {
-        const mirrorT = (halfPoints - i) / halfPoints; // 0 to 1 as we descend
-        const theta = Math.PI + mirrorT * Math.PI; // π to 2π
+        const mirrorT = (halfPoints - i) / halfPoints;
+        const theta = Math.PI + mirrorT * Math.PI;
         
         const forwardOffset = Math.sin(theta) * loopRadius;
         const verticalOffset = (1 - Math.cos(theta)) * loopRadius;
         
-        // Gradually add lateral offset as we descend (smooth ease-in)
-        const lateralT = mirrorT * mirrorT; // Quadratic ease
-        const lateralOffset = lateralT * exitSeparation;
-        
         loopPoints.push({
           id: `point-${++pointCounter}`,
           position: new THREE.Vector3(
-            entryPos.x + forward.x * forwardOffset + right.x * lateralOffset,
+            entryPos.x + forward.x * forwardOffset,
             entryPos.y + verticalOffset,
-            entryPos.z + forward.z * forwardOffset + right.z * lateralOffset
+            entryPos.z + forward.z * forwardOffset
           ),
           tilt: 0
         });
@@ -186,8 +174,16 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       // Get the next point (unchanged) so we can rejoin it
       const nextPoint = state.trackPoints[pointIndex + 1];
       
-      // Loop exit position (last point of loop) - should be very close to entry
+      // Loop exit position (last point of loop) - same as entry position
       const loopExit = loopPoints[loopPoints.length - 1].position.clone();
+      
+      // Compute right vector for separation in transition
+      const up = new THREE.Vector3(0, 1, 0);
+      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+      const exitSeparation = 2.5;
+      
+      // Offset the loop exit laterally to start the separation
+      const offsetLoopExit = loopExit.clone().add(right.clone().multiplyScalar(exitSeparation * 0.5));
       
       // Create smooth transition points using cubic Hermite interpolation
       const transitionPoints: TrackPoint[] = [];
@@ -198,7 +194,7 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
         const exitTangent = forward.clone();
         
         // Target tangent: direction toward next point
-        const toNext = nextPos.clone().sub(loopExit);
+        const toNext = nextPos.clone().sub(offsetLoopExit);
         const targetTangent = toNext.clone().normalize();
         
         // Distance for transition
@@ -217,12 +213,18 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
           // Tangent scaling (use distance as tangent magnitude)
           const tangentScale = dist * 0.5;
           
-          const px = h00 * loopExit.x + h10 * exitTangent.x * tangentScale + 
-                     h01 * nextPos.x + h11 * targetTangent.x * tangentScale;
-          const py = h00 * loopExit.y + h10 * exitTangent.y * tangentScale + 
+          // Add decreasing lateral offset (starts with full separation, eases to zero)
+          const lateralT = 1 - t; // 0.75, 0.5, 0.25
+          const lateralOffset = lateralT * exitSeparation;
+          
+          const px = h00 * offsetLoopExit.x + h10 * exitTangent.x * tangentScale + 
+                     h01 * nextPos.x + h11 * targetTangent.x * tangentScale +
+                     right.x * lateralOffset;
+          const py = h00 * offsetLoopExit.y + h10 * exitTangent.y * tangentScale + 
                      h01 * nextPos.y + h11 * targetTangent.y * tangentScale;
-          const pz = h00 * loopExit.z + h10 * exitTangent.z * tangentScale + 
-                     h01 * nextPos.z + h11 * targetTangent.z * tangentScale;
+          const pz = h00 * offsetLoopExit.z + h10 * exitTangent.z * tangentScale + 
+                     h01 * nextPos.z + h11 * targetTangent.z * tangentScale +
+                     right.z * lateralOffset;
           
           transitionPoints.push({
             id: `point-${++pointCounter}`,
