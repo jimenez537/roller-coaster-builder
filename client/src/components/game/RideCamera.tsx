@@ -13,6 +13,7 @@ export function RideCamera() {
   const previousLookAt = useRef(new THREE.Vector3());
   const previousRoll = useRef(0);
   const maxHeightReached = useRef(0);
+  const previousUp = useRef(new THREE.Vector3(0, 1, 0));
   
   const firstPeakT = useMemo(() => {
     if (trackPoints.length < 2) return 0;
@@ -53,6 +54,8 @@ export function RideCamera() {
     if (isRiding && curveRef.current) {
       const startPoint = curveRef.current.getPoint(0);
       maxHeightReached.current = startPoint.y;
+      // Reset up vector for new ride
+      previousUp.current.set(0, 1, 0);
     }
   }, [isRiding]);
   
@@ -100,48 +103,62 @@ export function RideCamera() {
     
     setRideProgress(newProgress);
     
-    // Look much further ahead for stable forward-facing camera
+    // Get current position and tangent
+    const position = curve.getPoint(newProgress);
+    const tangent = curve.getTangent(newProgress).normalize();
+    
+    // Use parallel transport to maintain stable up vector through loops
+    // Project previous up onto plane perpendicular to tangent
+    const dot = previousUp.current.dot(tangent);
+    const upVector = previousUp.current.clone().sub(tangent.clone().multiplyScalar(dot));
+    
+    if (upVector.length() > 0.001) {
+      upVector.normalize();
+    } else {
+      // Fallback for degenerate cases - use world up projected
+      upVector.set(0, 1, 0);
+      const d2 = upVector.dot(tangent);
+      upVector.sub(tangent.clone().multiplyScalar(d2));
+      if (upVector.length() > 0.001) {
+        upVector.normalize();
+      } else {
+        upVector.set(1, 0, 0);
+      }
+    }
+    previousUp.current.copy(upVector);
+    
+    // Camera positioned at track point with height offset in the up direction
+    const cameraHeight = 1.8;
+    const cameraOffset = upVector.clone().multiplyScalar(cameraHeight);
+    const targetCameraPos = position.clone().add(cameraOffset);
+    
+    // Look ahead along the track - further ahead for stable forward view
     const lookAheadT = isLooped 
-      ? (newProgress + 0.08) % 1 
-      : Math.min(newProgress + 0.08, 0.999);
+      ? (newProgress + 0.05) % 1 
+      : Math.min(newProgress + 0.05, 0.999);
     const lookAtPoint = curve.getPoint(lookAheadT);
     
-    // Position camera slightly behind the current track progress to avoid cart obstruction
-    const cameraBehindT = isLooped
-      ? (newProgress - 0.01 + 1) % 1
-      : Math.max(newProgress - 0.01, 0.001);
-    const cameraTrackPos = curve.getPoint(cameraBehindT);
-    
-    const tangent = curve.getTangent(cameraBehindT).normalize();
-    
-    // Use world up vector and project it perpendicular to tangent for stable orientation
-    const worldUp = new THREE.Vector3(0, 1, 0);
-    const right = new THREE.Vector3().crossVectors(tangent, worldUp).normalize();
-    
-    // If tangent is nearly vertical, use a fallback right vector
-    if (right.length() < 0.01) {
-      right.set(1, 0, 0);
+    // Get up vector at look-ahead point for consistent height
+    const lookTangent = curve.getTangent(lookAheadT).normalize();
+    const lookDot = upVector.dot(lookTangent);
+    const lookUpVector = upVector.clone().sub(lookTangent.clone().multiplyScalar(lookDot));
+    if (lookUpVector.length() > 0.001) {
+      lookUpVector.normalize();
+    } else {
+      lookUpVector.copy(upVector);
     }
     
-    // Calculate perpendicular up vector from tangent and right
-    const upVector = new THREE.Vector3().crossVectors(right, tangent).normalize();
+    // Look at point with slight height offset
+    const targetLookAt = lookAtPoint.clone().add(lookUpVector.clone().multiplyScalar(cameraHeight * 0.5));
     
-    const cameraHeight = 2.0;
-    const cameraOffset = upVector.clone().multiplyScalar(cameraHeight);
+    // Smooth camera movement
+    previousCameraPos.current.lerp(targetCameraPos, 0.2);
+    previousLookAt.current.lerp(targetLookAt, 0.2);
     
-    const targetCameraPos = cameraTrackPos.clone().add(cameraOffset);
-    
-    // Look at point further ahead along the track, at a lower height offset
-    const lookAtOffset = upVector.clone().multiplyScalar(cameraHeight * 0.3);
-    const targetLookAt = lookAtPoint.clone().add(lookAtOffset);
-    
-    // Faster lerp for more responsive camera
-    previousCameraPos.current.lerp(targetCameraPos, 0.15);
-    previousLookAt.current.lerp(targetLookAt, 0.15);
-    
+    // Apply track tilt as camera roll
     const tilt = getTrackTiltAtProgress(trackPoints, newProgress, isLooped);
     const targetRoll = (tilt * Math.PI) / 180;
-    previousRoll.current = previousRoll.current + (targetRoll - previousRoll.current) * 0.15;
+    previousRoll.current = previousRoll.current + (targetRoll - previousRoll.current) * 0.2;
     
     camera.position.copy(previousCameraPos.current);
     camera.lookAt(previousLookAt.current);
