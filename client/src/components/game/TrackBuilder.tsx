@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { ThreeEvent, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useRollerCoaster } from "@/lib/stores/useRollerCoaster";
@@ -6,13 +6,74 @@ import { TrackPoint } from "./TrackPoint";
 import { Track } from "./Track";
 
 export function TrackBuilder() {
-  const { trackPoints, addTrackPoint, mode, selectPoint, isAddingPoints } = useRollerCoaster();
+  const { trackPoints, loopSegments, isLooped, addTrackPoint, mode, selectPoint, isAddingPoints } = useRollerCoaster();
   const planeRef = useRef<THREE.Mesh>(null);
   const { gl } = useThree();
   
   const [isDraggingNew, setIsDraggingNew] = useState(false);
   const [dragPosition, setDragPosition] = useState<THREE.Vector3 | null>(null);
   const currentHeightRef = useRef(3);
+  
+  // Calculate loop-adjusted positions for track point widgets
+  // This matches the offset calculation in Track.tsx so widgets align with the actual track
+  const adjustedPositions = useMemo(() => {
+    if (trackPoints.length < 2) {
+      return trackPoints.map(p => p.position.clone());
+    }
+    
+    const points = trackPoints.map(p => p.position.clone());
+    const baseSpline = new THREE.CatmullRomCurve3(points, isLooped, "catmullrom", 0.5);
+    
+    const loopMap = new Map<string, { pitch: number; radius: number }>();
+    for (const seg of loopSegments) {
+      loopMap.set(seg.entryPointId, seg);
+    }
+    
+    const numTrackPoints = trackPoints.length;
+    const totalSplineSegments = isLooped ? numTrackPoints : numTrackPoints - 1;
+    
+    // Calculate total loop offset for closed tracks (same as Track.tsx)
+    let totalLoopOffset = new THREE.Vector3(0, 0, 0);
+    if (isLooped) {
+      for (let i = 0; i < numTrackPoints; i++) {
+        const loopSeg = loopMap.get(trackPoints[i].id);
+        if (loopSeg) {
+          const splineT = i / totalSplineSegments;
+          const forward = baseSpline.getTangent(splineT).normalize();
+          totalLoopOffset.addScaledVector(forward, loopSeg.pitch);
+        }
+      }
+    }
+    
+    const adjustedPositions: THREE.Vector3[] = [];
+    let rollOffset = new THREE.Vector3(0, 0, 0);
+    
+    for (let i = 0; i < numTrackPoints; i++) {
+      const currentPoint = trackPoints[i];
+      const loopSeg = loopMap.get(currentPoint.id);
+      const splineT = i / totalSplineSegments;
+      
+      // Apply progressive compensation for closed tracks (same as Track.tsx)
+      const loopCompensation = isLooped 
+        ? totalLoopOffset.clone().multiplyScalar(-splineT)
+        : new THREE.Vector3(0, 0, 0);
+      
+      // Match Track.tsx: entryPos = baseSpline.getPoint(splineT).add(rollOffset).add(loopCompensation)
+      const adjustedPos = baseSpline.getPoint(splineT)
+        .add(rollOffset.clone())
+        .add(loopCompensation);
+      
+      adjustedPositions.push(adjustedPos);
+      
+      // If this point has a loop, add its pitch to the offset for subsequent points
+      if (loopSeg) {
+        const forward = baseSpline.getTangent(splineT).normalize();
+        rollOffset.addScaledVector(forward, loopSeg.pitch);
+      }
+    }
+    
+    return adjustedPositions;
+  }, [trackPoints, loopSegments, isLooped]);
   
   useEffect(() => {
     if (!isDraggingNew) return;
@@ -80,7 +141,7 @@ export function TrackBuilder() {
         <TrackPoint
           key={point.id}
           id={point.id}
-          position={point.position}
+          position={adjustedPositions[index] || point.position}
           tilt={point.tilt}
           index={index}
           isFirst={index === 0}
