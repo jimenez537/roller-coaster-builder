@@ -107,14 +107,22 @@ async function fetchSavedCoasters(): Promise<SavedCoaster[]> {
 
 async function createCoasterAPI(coaster: Omit<SavedCoaster, "id" | "createdAt" | "updatedAt">): Promise<SavedCoaster | null> {
   try {
+    console.log("Saving coaster:", coaster.name);
     const response = await fetch(API_BASE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(coaster),
     });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Failed to save coaster:", response.status, errorText);
+      return null;
+    }
+    const saved = await response.json();
+    console.log("Coaster saved successfully:", saved.id);
+    return saved;
+  } catch (e) {
+    console.error("Error saving coaster:", e);
     return null;
   }
 }
