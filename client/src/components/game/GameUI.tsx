@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRollerCoaster } from "@/lib/stores/useRollerCoaster";
 import { Button } from "@/components/ui/button";
 
@@ -33,12 +33,7 @@ export function GameUI() {
     deleteCoaster,
     exportCoaster,
     importCoaster,
-    refreshSavedCoasters,
   } = useRollerCoaster();
-  
-  useEffect(() => {
-    refreshSavedCoasters();
-  }, [refreshSavedCoasters]);
   
   const [position, setPosition] = useState({ x: 8, y: 8 });
   const [isDragging, setIsDragging] = useState(false);
@@ -77,7 +72,7 @@ export function GameUI() {
     }
   };
   
-  const handleExport = (id: number) => {
+  const handleExport = (id: string) => {
     const json = exportCoaster(id);
     if (json) {
       const blob = new Blob([json], { type: "application/json" });
@@ -95,10 +90,9 @@ export function GameUI() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = async (event) => {
+      reader.onload = (event) => {
         const text = event.target?.result as string;
-        const success = await importCoaster(text);
-        if (success) {
+        if (importCoaster(text)) {
           alert("Coaster imported successfully!");
         } else {
           alert("Failed to import coaster. Invalid file format.");
@@ -348,11 +342,7 @@ export function GameUI() {
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-medium truncate">{coaster.name}</span>
                       <span className="text-gray-500 text-[10px]">
-                        {coaster.createdAt 
-                          ? new Date(coaster.createdAt).toLocaleDateString() 
-                          : coaster.timestamp 
-                            ? new Date(coaster.timestamp).toLocaleDateString()
-                            : ""}
+                        {new Date(coaster.timestamp).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="flex gap-1">

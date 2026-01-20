@@ -69,7 +69,6 @@
     "passport-local": "^1.0.0",
     "pg": "^8.16.3",
     "pixi.js": "^8.8.1",
-    "postgres": "^3.4.8",
     "postprocessing": "^6.36.0",
     "r3f-perf": "^7.2.3",
     "react": "^18.3.1",

@@ -36,16 +36,14 @@ interface SerializedTrackPoint {
 }
 
 export interface SavedCoaster {
-  id: number;
+  id: string;
   name: string;
+  timestamp: number;
   trackPoints: SerializedTrackPoint[];
   loopSegments: SerializedLoopSegment[];
   isLooped: boolean;
   hasChainLift: boolean;
   showWoodSupports: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  timestamp?: number;
 }
 
 // Serialization helpers
@@ -93,57 +91,19 @@ function deserializeLoopSegment(serialized: SerializedLoopSegment): LoopSegment 
   };
 }
 
-const API_BASE = "/api/coasters";
+const STORAGE_KEY = "roller_coaster_saves";
 
-async function fetchSavedCoasters(): Promise<SavedCoaster[]> {
+function loadSavedCoasters(): SavedCoaster[] {
   try {
-    const response = await fetch(API_BASE);
-    if (!response.ok) return [];
-    return await response.json();
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
   } catch {
     return [];
   }
 }
 
-async function createCoasterAPI(coaster: Omit<SavedCoaster, "id" | "createdAt" | "updatedAt">): Promise<SavedCoaster | null> {
-  try {
-    console.log("Saving coaster:", coaster.name);
-    const response = await fetch(API_BASE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(coaster),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Failed to save coaster:", response.status, errorText);
-      return null;
-    }
-    const saved = await response.json();
-    console.log("Coaster saved successfully:", saved.id);
-    return saved;
-  } catch (e) {
-    console.error("Error saving coaster:", e);
-    return null;
-  }
-}
-
-async function deleteCoasterAPI(id: number): Promise<boolean> {
-  try {
-    const response = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function getCoasterAPI(id: number): Promise<SavedCoaster | null> {
-  try {
-    const response = await fetch(`${API_BASE}/${id}`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
+function persistSavedCoasters(coasters: SavedCoaster[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(coasters));
 }
 
 interface RollerCoasterState {
@@ -186,12 +146,12 @@ interface RollerCoasterState {
   stopRide: () => void;
   
   // Save/Load functionality
-  saveCoaster: (name: string) => Promise<void>;
-  loadCoaster: (id: number) => Promise<void>;
-  deleteCoaster: (id: number) => Promise<void>;
-  exportCoaster: (id: number) => string | null;
-  importCoaster: (jsonString: string) => Promise<boolean>;
-  refreshSavedCoasters: () => Promise<void>;
+  saveCoaster: (name: string) => void;
+  loadCoaster: (id: string) => void;
+  deleteCoaster: (id: string) => void;
+  exportCoaster: (id: string) => string | null;
+  importCoaster: (jsonString: string) => boolean;
+  refreshSavedCoasters: () => void;
 }
 
 let pointCounter = 0;
@@ -211,7 +171,7 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
   showWoodSupports: false,
   isNightMode: false,
   cameraTarget: null,
-  savedCoasters: [],
+  savedCoasters: loadSavedCoasters(),
   currentCoasterName: null,
   
   setMode: (mode) => set({ mode }),
@@ -313,10 +273,13 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
   },
   
   // Save/Load functionality
-  saveCoaster: async (name: string) => {
+  saveCoaster: (name: string) => {
     const state = get();
-    const coasterData = {
+    const id = `coaster-${Date.now()}`;
+    const savedCoaster: SavedCoaster = {
+      id,
       name,
+      timestamp: Date.now(),
       trackPoints: state.trackPoints.map(serializeTrackPoint),
       loopSegments: state.loopSegments.map(serializeLoopSegment),
       isLooped: state.isLooped,
@@ -324,21 +287,23 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
       showWoodSupports: state.showWoodSupports,
     };
     
-    const saved = await createCoasterAPI(coasterData);
-    if (saved) {
-      const coasters = await fetchSavedCoasters();
-      set({ savedCoasters: coasters, currentCoasterName: name });
-    }
+    const coasters = loadSavedCoasters();
+    coasters.push(savedCoaster);
+    persistSavedCoasters(coasters);
+    
+    set({ savedCoasters: coasters, currentCoasterName: name });
   },
   
-  loadCoaster: async (id: number) => {
+  loadCoaster: (id: string) => {
     try {
-      const coaster = await getCoasterAPI(id);
+      const coasters = loadSavedCoasters();
+      const coaster = coasters.find(c => c.id === id);
       if (!coaster || !Array.isArray(coaster.trackPoints)) return;
       
       const trackPoints = coaster.trackPoints.map(deserializeTrackPoint);
       const loopSegments = (coaster.loopSegments || []).map(deserializeLoopSegment);
       
+      // Update pointCounter to avoid ID collisions
       const maxId = trackPoints.reduce((max, p) => {
         const num = parseInt(p.id.replace('point-', ''), 10);
         return isNaN(num) ? max : Math.max(max, num);
@@ -362,60 +327,70 @@ export const useRollerCoaster = create<RollerCoasterState>((set, get) => ({
     }
   },
   
-  deleteCoaster: async (id: number) => {
-    const success = await deleteCoasterAPI(id);
-    if (success) {
-      const coasters = await fetchSavedCoasters();
-      set({ savedCoasters: coasters });
-    }
+  deleteCoaster: (id: string) => {
+    const coasters = loadSavedCoasters().filter(c => c.id !== id);
+    persistSavedCoasters(coasters);
+    set({ savedCoasters: coasters });
   },
   
-  exportCoaster: (id: number) => {
-    const state = get();
-    const coaster = state.savedCoasters.find(c => c.id === id);
+  exportCoaster: (id: string) => {
+    const coasters = loadSavedCoasters();
+    const coaster = coasters.find(c => c.id === id);
     if (!coaster) return null;
     return JSON.stringify(coaster, null, 2);
   },
   
-  importCoaster: async (jsonString: string) => {
+  importCoaster: (jsonString: string) => {
     try {
       const coaster = JSON.parse(jsonString);
       
+      // Validate required fields
       if (!coaster || typeof coaster !== 'object') return false;
       if (typeof coaster.name !== 'string' || !coaster.name.trim()) return false;
       if (!Array.isArray(coaster.trackPoints)) return false;
       
+      // Validate each track point has required structure
       for (const pt of coaster.trackPoints) {
         if (!pt || typeof pt !== 'object') return false;
         if (!Array.isArray(pt.position) || pt.position.length !== 3) return false;
         if (!pt.position.every((n: unknown) => typeof n === 'number' && isFinite(n))) return false;
         if (typeof pt.tilt !== 'number') return false;
         if (typeof pt.id !== 'string') return false;
+        
+        // Validate loopMeta if present
+        if (pt.loopMeta) {
+          const lm = pt.loopMeta;
+          if (!Array.isArray(lm.entryPos) || lm.entryPos.length !== 3) return false;
+          if (!Array.isArray(lm.forward) || lm.forward.length !== 3) return false;
+          if (!Array.isArray(lm.up) || lm.up.length !== 3) return false;
+          if (!Array.isArray(lm.right) || lm.right.length !== 3) return false;
+          if (typeof lm.radius !== 'number' || typeof lm.theta !== 'number') return false;
+        }
       }
       
-      const coasterData = {
+      // Assign new ID to avoid conflicts
+      const validCoaster: SavedCoaster = {
+        id: `coaster-${Date.now()}`,
         name: coaster.name.trim(),
+        timestamp: Date.now(),
         trackPoints: coaster.trackPoints,
-        loopSegments: Array.isArray(coaster.loopSegments) ? coaster.loopSegments : [],
-        isLooped: Boolean(coaster.isLooped ?? false),
-        hasChainLift: coaster.hasChainLift !== undefined ? Boolean(coaster.hasChainLift) : true,
-        showWoodSupports: Boolean(coaster.showWoodSupports ?? false),
+        loopSegments: coaster.loopSegments || [],
+        isLooped: Boolean(coaster.isLooped),
+        hasChainLift: coaster.hasChainLift !== false,
+        showWoodSupports: Boolean(coaster.showWoodSupports),
       };
       
-      const saved = await createCoasterAPI(coasterData);
-      if (saved) {
-        const coasters = await fetchSavedCoasters();
-        set({ savedCoasters: coasters });
-        return true;
-      }
-      return false;
+      const coasters = loadSavedCoasters();
+      coasters.push(validCoaster);
+      persistSavedCoasters(coasters);
+      set({ savedCoasters: coasters });
+      return true;
     } catch {
       return false;
     }
   },
   
-  refreshSavedCoasters: async () => {
-    const coasters = await fetchSavedCoasters();
-    set({ savedCoasters: coasters });
+  refreshSavedCoasters: () => {
+    set({ savedCoasters: loadSavedCoasters() });
   },
 }));
