@@ -32,6 +32,11 @@ export const insertCoasterSchema = createInsertSchema(coasters).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  loopSegments: z.any().optional().default([]),
+  isLooped: z.boolean().optional().default(false),
+  hasChainLift: z.boolean().optional().default(true),
+  showWoodSupports: z.boolean().optional().default(false),
 });
 
 export type InsertCoaster = z.infer<typeof insertCoasterSchema>;
